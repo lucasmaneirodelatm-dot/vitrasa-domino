@@ -556,8 +556,9 @@
       }
       
       // Render board
-      const boardEl = document.getElementById('board-pieces');
-      if (gameState.board.length === 0) {
+const boardEl = document.getElementById('board-pieces');
+
+if (gameState.board.length === 0) {
   if (gameState.selectedPiece) {
     boardEl.innerHTML = `
       <div class="board-slot valid-drop w-20 h-32 border-2 border-dashed border-green-400
@@ -574,13 +575,16 @@
       </div>
     `;
   }
-  return;
-}
+} else {
+  const ends = getBoardEnds();
+  const canLeft =
+    gameState.selectedPiece &&
+    canPlayPiece(gameState.selectedPiece, ends.left);
 
-      } else {
-        const ends = getBoardEnds();
-        const canLeft = gameState.selectedPiece && canPlayPiece(gameState.selectedPiece, ends.left);
-        const canRight = gameState.selectedPiece && canPlayPiece(gameState.selectedPiece, ends.right);
+  const canRight =
+    gameState.selectedPiece &&
+    canPlayPiece(gameState.selectedPiece, ends.right);
+
         
         let html = '';
         if (gameState.selectedPiece) {

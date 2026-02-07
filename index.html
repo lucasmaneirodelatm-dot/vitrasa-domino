@@ -561,11 +561,13 @@ const boardEl = document.getElementById('board-pieces');
 if (gameState.board.length === 0) {
   if (gameState.selectedPiece) {
     boardEl.innerHTML = `
-      <div class="board-slot valid-drop w-20 h-32 border-2 border-dashed border-green-400
-                  rounded-lg flex items-center justify-center cursor-pointer"
-           onclick="playerPlacePiece('right')">
-        <span class="text-3xl">🎯</span>
-      </div>
+  <div class="board-slot valid-drop w-20 h-32 border-2 border-dashed border-green-400
+       rounded-lg flex items-center justify-center cursor-pointer"
+       data-side="right">
+    <span class="text-3xl">🎯</span>
+  </div>
+`;
+
     `;
   } else {
     boardEl.innerHTML = `
@@ -639,8 +641,9 @@ if (gameState.board.length === 0) {
         });
         
         el.addEventListener('dragend', () => {
-          gameState.selectedPiece = null;
+         // NO borrar aquí
         });
+
       });
       
       // Board drop zones with better event handling

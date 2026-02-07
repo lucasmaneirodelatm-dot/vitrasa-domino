@@ -101,25 +101,23 @@
       <div id="ai-thinking" class="hidden text-yellow-300 font-bold flex items-center gap-2"><span class="animate-spin">⚙️</span> IA Pensando...
       </div>
      </div>
-    <!-- Board -->
-<div class="flex-1 bg-gradient-to-br from-green-800 to-green-900 rounded-2xl p-4 shadow-inner border-4 border-green-700 min-h-0 flex flex-col">
-  <h2 class="text-white font-semibold mb-3 flex items-center gap-2">
-    <span class="text-2xl">🎯</span> Mesa de Juego
-  </h2>
+    <div class="board-container flex-1 flex items-center justify-center overflow-auto">
+  <div id="board" class="relative">
 
-  <div class="board-container flex-1 flex items-center justify-center overflow-auto">
-    <!-- 👇 ESTE DIV ES EL QUE FALTABA -->
-    <div id="board" class="flex items-center gap-3">
-      
-      <svg id="board-svg"
-           width="800"
-           height="400"
-           class="bg-green-700/50 rounded-lg"
-           style="min-width: 800px; min-height: 400px;">
-        ...
-      </svg>
+    <!-- FONDO (NO SE TOCA) -->
+    <svg id="board-svg"
+         width="800"
+         height="400"
+         class="bg-green-700/50 rounded-lg block"
+         style="min-width: 800px; min-height: 400px;">
+      ...
+    </svg>
 
+    <!-- 👇 AQUÍ VAN LAS FICHAS -->
+    <div id="board-pieces"
+         class="absolute inset-0 flex items-center justify-center gap-3 pointer-events-auto">
     </div>
+
   </div>
 </div>
     </div><!-- Player Hand -->

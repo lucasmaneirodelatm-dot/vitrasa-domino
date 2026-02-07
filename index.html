@@ -1,0 +1,643 @@
+<!doctype html>
+<html lang="es" class="h-full">
+ <head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Dominó Vitrasa</title>
+  <script src="https://cdn.tailwindcss.com"></script>
+  <link href="https://fonts.googleapis.com/css2?family=Fredoka:wght@400;500;600;700&amp;display=swap" rel="stylesheet">
+  <style>
+    body { box-sizing: border-box; }
+    html, body { height: 100%; }
+    * { font-family: 'Fredoka', sans-serif; }
+    
+    .domino-piece {
+      transition: transform 0.15s ease, box-shadow 0.15s ease;
+      cursor: grab;
+      user-select: none;
+      touch-action: none;
+    }
+    
+    .domino-piece:active { cursor: grabbing; }
+    .domino-piece:hover { transform: translateY(-8px); box-shadow: 0 15px 35px rgba(0,0,0,0.3); }
+    .domino-piece.selected { transform: translateY(-12px) scale(1.08); box-shadow: 0 20px 50px rgba(59, 130, 246, 0.6); outline: 4px solid #3b82f6; }
+    
+    .board-slot { transition: all 0.2s ease; cursor: pointer; }
+    .board-slot.valid-drop { background: rgba(34, 197, 94, 0.4); border-color: #22c55e; box-shadow: 0 0 15px rgba(34, 197, 94, 0.5); }
+    .board-slot.valid-drop:hover { background: rgba(34, 197, 94, 0.6); transform: scale(1.05); }
+    
+    .vitrasa-img { object-fit: cover; border-radius: 8px; }
+    
+    @keyframes slideIn { from { opacity: 0; transform: translateY(30px); } to { opacity: 1; transform: translateY(0); } }
+    .animate-slide { animation: slideIn 0.4s ease forwards; }
+    
+    @keyframes pulse { 0%, 100% { box-shadow: 0 0 20px rgba(59, 130, 246, 0.4); } 50% { box-shadow: 0 0 40px rgba(59, 130, 246, 0.8); } }
+    .pulse-glow { animation: pulse 2s ease-in-out infinite; }
+    
+    .board-container { overflow-x: auto; overflow-y: hidden; scrollbar-width: thin; }
+    .board-container::-webkit-scrollbar { height: 8px; }
+    .board-container::-webkit-scrollbar-track { background: #1e3a5f; }
+    .board-container::-webkit-scrollbar-thumb { background: #3b82f6; border-radius: 4px; }
+    
+    .main-wrapper { height: 100%; display: flex; flex-direction: column; overflow: hidden; }
+    .game-content { flex: 1; overflow-y: auto; display: flex; flex-direction: column; min-h: 0; }
+  </style>
+  <style>@view-transition { navigation: auto; }</style>
+  <script src="/_sdk/data_sdk.js" type="text/javascript"></script>
+  <script src="/_sdk/element_sdk.js" type="text/javascript"></script>
+ </head>
+ <body class="h-full bg-gradient-to-br from-blue-900 via-blue-800 to-indigo-900 overflow-hidden">
+  <div id="app" class="main-wrapper"><!-- Mode Selection Modal -->
+   <div id="mode-modal" class="fixed inset-0 bg-black/80 flex items-center justify-center z-50">
+    <div class="bg-gradient-to-br from-blue-900 to-indigo-900 rounded-3xl p-8 max-w-2xl mx-4 border-4 border-yellow-500 shadow-2xl">
+     <div class="text-center mb-8">
+      <div class="text-6xl mb-4">
+       🚌
+      </div>
+      <h1 id="game-title" class="text-4xl font-bold text-white mb-2">Dominó Vitrasa</h1>
+      <p class="text-blue-300">Elige tu modo de juego</p>
+     </div>
+     <div class="grid md:grid-cols-2 gap-4 mb-8">
+      <div class="bg-gradient-to-br from-purple-800 to-purple-900 rounded-2xl p-6 border-2 border-purple-500 cursor-pointer hover:border-purple-300 hover:shadow-xl transition-all" onclick="startGame('ai')">
+       <div class="text-5xl mb-3">
+        🤖
+       </div>
+       <h2 class="text-2xl font-bold text-white mb-2">Vs IA</h2>
+       <p class="text-purple-200 mb-4">Juega contra la CPU</p><input type="text" id="ai-player-name" placeholder="Tu nombre" class="w-full px-3 py-2 rounded-lg bg-purple-800 text-white placeholder-purple-300 border border-purple-600 focus:outline-none" onclick="event.stopPropagation()">
+      </div>
+      <div class="bg-gradient-to-br from-green-800 to-green-900 rounded-2xl p-6 border-2 border-green-500 cursor-pointer hover:border-green-300 hover:shadow-xl transition-all" onclick="startGame('2players')">
+       <div class="text-5xl mb-3">
+        👥
+       </div>
+       <h2 class="text-2xl font-bold text-white mb-2">2 Jugadores</h2>
+       <p class="text-green-200 mb-4">Mismo dispositivo</p>
+       <div class="space-y-2"><input type="text" id="p1-name" placeholder="Jugador 1" class="w-full px-3 py-2 rounded-lg bg-green-800 text-white placeholder-green-300 border border-green-600 focus:outline-none text-sm" onclick="event.stopPropagation()"> <input type="text" id="p2-name" placeholder="Jugador 2" class="w-full px-3 py-2 rounded-lg bg-green-800 text-white placeholder-green-300 border border-green-600 focus:outline-none text-sm" onclick="event.stopPropagation()">
+       </div>
+      </div>
+     </div><button onclick="closeModal()" class="w-full bg-gray-600 hover:bg-gray-700 text-white font-bold py-3 rounded-xl transition-all"> ✖️ Cerrar </button>
+    </div>
+   </div><!-- Header -->
+   <header class="bg-gradient-to-r from-blue-950 to-indigo-950 p-4 shadow-2xl border-b-4 border-yellow-500 flex-shrink-0">
+    <div class="max-w-7xl mx-auto flex items-center justify-between flex-wrap gap-4">
+     <div class="flex items-center gap-4">
+      <div class="w-14 h-14 bg-yellow-500 rounded-xl flex items-center justify-center shadow-lg"><span class="text-3xl">🚌</span>
+      </div>
+      <div>
+       <h1 class="text-2xl md:text-3xl font-bold text-white">Dominó Vitrasa</h1>
+       <p class="text-blue-300 text-sm">Modo: <span id="mode-display" class="font-semibold">Cargando...</span></p>
+      </div>
+     </div>
+     <div class="flex gap-2"><button onclick="backToMenu()" class="bg-yellow-500 hover:bg-yellow-400 text-blue-900 font-bold px-4 py-2 rounded-xl transition-all"> 🏠 Menú </button>
+     </div>
+    </div>
+   </header><!-- Game Area -->
+   <main class="game-content p-4 gap-4"><!-- Turn Indicator -->
+    <div class="bg-blue-800/50 rounded-xl p-3 border-2 border-blue-600">
+     <div class="flex items-center justify-between">
+      <div>
+       <p class="text-blue-300 text-sm">Turno de:</p>
+       <p class="text-white text-xl font-bold" id="current-player-display">Jugador 1</p>
+      </div><button id="pass-btn" onclick="playerPassTurn()" class="hidden bg-red-500 hover:bg-red-600 text-white font-bold px-4 py-2 rounded-xl transition-all"> ⏭️ Pasar </button>
+      <div id="ai-thinking" class="hidden text-yellow-300 font-bold flex items-center gap-2"><span class="animate-spin">⚙️</span> IA Pensando...
+      </div>
+     </div>
+    </div><!-- Board -->
+    <div class="flex-1 bg-gradient-to-br from-green-800 to-green-900 rounded-2xl p-4 shadow-inner border-4 border-green-700 min-h-0 flex flex-col">
+     <h2 class="text-white font-semibold mb-3 flex items-center gap-2"><span class="text-2xl">🎯</span> Mesa de Juego</h2>
+     <div class="board-container flex-1 flex items-center justify-center overflow-auto">
+      <svg id="board-svg" width="800" height="400" class="bg-green-700/50 rounded-lg" style="min-width: 800px; min-height: 400px;"><defs>
+        <pattern id="grid" width="20" height="20" patternunits="userSpaceOnUse">
+         <path d="M 20 0 L 0 0 0 20" fill="none" stroke="rgba(255,255,255,0.05)" stroke-width="0.5" />
+        </pattern>
+       </defs> <rect width="800" height="400" fill="url(#grid)" /> <text x="400" y="200" text-anchor="middle" dominant-baseline="middle" class="text-lg" fill="#86efac" font-size="20">
+        Selecciona una ficha para comenzar
+       </text>
+      </svg>
+     </div>
+    </div><!-- Player Hand -->
+    <div class="bg-blue-950 rounded-2xl p-4 shadow-2xl border-2 border-blue-700">
+     <div class="flex items-center justify-between mb-3">
+      <h2 class="text-white font-semibold"><span class="text-2xl mr-2">✋</span> Tu mano <span id="hand-count" class="bg-blue-600 text-white text-xs px-2 py-1 rounded-full ml-2">0</span></h2><span id="placement-hint" class="text-yellow-300 text-sm hidden">👆 Arrastra a la mesa o toca dos veces</span>
+     </div>
+     <div id="player-hand" class="flex flex-wrap gap-3 justify-center min-h-32"><!-- Player pieces -->
+     </div>
+    </div><!-- Opponent Hand -->
+    <div class="bg-gray-800 rounded-2xl p-4 shadow-xl border-2 border-gray-700">
+     <div class="flex items-center justify-between">
+      <h2 class="text-gray-300 font-semibold"><span class="text-2xl mr-2" id="opponent-emoji">🤖</span> <span id="opponent-name">CPU</span> <span id="opponent-count" class="bg-gray-600 text-white text-xs px-2 py-1 rounded-full ml-2">0</span></h2>
+     </div>
+     <div id="opponent-hand" class="flex flex-wrap gap-2 justify-center mt-3 min-h-20"><!-- Opponent pieces (face down) -->
+     </div>
+    </div>
+   </main><!-- Winner Modal -->
+   <div id="winner-modal" class="fixed inset-0 bg-black/80 flex items-center justify-center z-50 hidden">
+    <div class="bg-gradient-to-br from-blue-900 to-indigo-900 rounded-3xl p-8 max-w-md mx-4 text-center border-4 border-yellow-500 shadow-2xl">
+     <div class="text-6xl mb-4">
+      🏆
+     </div>
+     <h2 id="winner-text" class="text-3xl font-bold text-white mb-4">¡Ganaste!</h2>
+     <p id="winner-desc" class="text-blue-200 mb-6"></p><button onclick="backToMenu()" class="w-full bg-yellow-500 hover:bg-yellow-400 text-blue-900 font-bold px-8 py-3 rounded-xl transition-all"> 🔄 Nueva Partida </button>
+    </div>
+   </div>
+  </div>
+  <script>
+    // 🚌 Imágenes de autobuses Vitrasa para las fichas del dominó
+    // Tienes 7 imágenes diferentes, una para cada número (0-6)
+    const VITRASA_IMAGES = [
+      'https://images.unsplash.com/photo-1464219414776-0ff60534ff0b?w=200&h=150&fit=crop', // 0: Autobús rojo frente
+      'https://images.unsplash.com/photo-1464219414808-b1b9d89e5fa0?w=200&h=150&fit=crop', // 1: Autobús lateral
+      'https://images.unsplash.com/photo-1464219414915-5e8e7d0d2cdb?w=200&h=150&fit=crop', // 2: Autobús de noche
+      'https://images.unsplash.com/photo-1464219415011-a5e0eb50e2aa?w=200&h=150&fit=crop', // 3: Autobús con gente
+      'https://images.unsplash.com/photo-1464219415140-c7b34e33db10?w=200&h=150&fit=crop', // 4: Autobús rural
+      'https://images.unsplash.com/photo-1464219415302-f2ead245f9e9?w=200&h=150&fit=crop', // 5: Autobús de viaje
+      'https://images.unsplash.com/photo-1464219415483-7e36544fa65d?w=200&h=150&fit=crop'  // 6: Autobús escolar
+    ];
+
+    let config = { game_title: 'Dominó Vitrasa' };
+
+    let gameState = {
+      mode: null,
+      player1Name: 'Jugador 1',
+      player2Name: 'CPU',
+      playerHand: [],
+      opponentHand: [],
+      board: [],
+      currentPlayer: 'player1',
+      gameActive: false,
+      selectedPiece: null,
+      allGames: []
+    };
+
+    // Guardar partida en localStorage
+    function saveGame() {
+      localStorage.setItem('dominoGameState', JSON.stringify(gameState));
+    }
+
+    // Cargar partida desde localStorage
+    function loadGame() {
+      const saved = localStorage.getItem('dominoGameState');
+      if (saved) {
+        try {
+          gameState = JSON.parse(saved);
+        } catch (e) {
+          console.error('Error cargando partida:', e);
+        }
+      }
+    }
+
+    function isMobile() {
+      return /Android|webOS|iPhone|iPad|iPod|BlackBerry|IEMobile|Opera Mini/i.test(navigator.userAgent);
+    }
+
+    function generatePieces() {
+      // Crear todas las fichas del dominó español (28 fichas totales)
+      const pieces = [];
+      let id = 0;
+      for (let i = 0; i <= 6; i++) {
+        for (let j = i; j <= 6; j++) {
+          pieces.push({ id: id++, top: i, bottom: j });
+        }
+      }
+      // Mezclar las fichas aleatoriamente
+      return pieces.sort(() => Math.random() - 0.5);
+    }
+
+    function startGame(mode) {
+      gameState.mode = mode;
+      
+      if (mode === 'ai') {
+        gameState.player1Name = document.getElementById('ai-player-name').value.trim() || 'Jugador';
+        gameState.player2Name = 'CPU';
+      } else {
+        gameState.player1Name = document.getElementById('p1-name').value.trim() || 'Jugador 1';
+        gameState.player2Name = document.getElementById('p2-name').value.trim() || 'Jugador 2';
+      }
+
+      document.getElementById('mode-modal').classList.add('hidden');
+      document.getElementById('mode-display').textContent = mode === 'ai' ? 'vs IA' : '2 Jugadores';
+      
+      initGame();
+    }
+
+    function initGame() {
+      // Generar y distribuir las 28 fichas del dominó
+      const allPieces = generatePieces();
+      
+      // Distribuir fichas: 7 para jugador 1, 7 para jugador 2, 1 para tablero, 6 en reserva
+      gameState.playerHand = allPieces.slice(0, 7);
+      gameState.opponentHand = allPieces.slice(7, 14);
+      const boardPiece = allPieces[14]; // Ficha inicial del tablero
+      // Las fichas restantes están disponibles (allPieces.slice(15, 28))
+      
+      gameState.board = [];
+      gameState.currentPlayer = 'player1';
+      gameState.gameActive = true;
+      gameState.selectedPiece = null;
+      
+      // Colocar la ficha inicial en el tablero
+      gameState.board.push({
+        piece: boardPiece,
+        leftEnd: boardPiece.top,
+        rightEnd: boardPiece.bottom,
+        flipped: false
+      });
+      
+      saveGame();
+      render();
+    }
+
+    function closeModal() {
+      document.getElementById('mode-modal').classList.add('hidden');
+    }
+
+    function backToMenu() {
+      localStorage.removeItem('dominoGameState');
+      gameState = {
+        mode: null,
+        player1Name: 'Jugador 1',
+        player2Name: 'CPU',
+        playerHand: [],
+        opponentHand: [],
+        board: [],
+        currentPlayer: 'player1',
+        gameActive: false,
+        selectedPiece: null,
+        allGames: gameState.allGames
+      };
+      document.getElementById('winner-modal').classList.add('hidden');
+      document.getElementById('mode-modal').classList.remove('hidden');
+      document.getElementById('mode-display').textContent = 'Cargando...';
+    }
+
+    function createImageElement(value, size = 'normal') {
+      const sizeClass = size === 'small' ? 'w-8 h-8' : 'w-10 h-10';
+      const imageUrl = VITRASA_IMAGES[value] || VITRASA_IMAGES[0];
+      return `<div class="${sizeClass} rounded-lg flex items-center justify-center relative overflow-hidden border-2 border-yellow-600 shadow-md"><img src="${imageUrl}" alt="Bus ${value}" class="w-full h-full object-cover" loading="lazy" onerror="this.style.background='#fbbf24'; this.alt='Bus unavailable'"><span class="absolute bottom-0.5 right-0.5 bg-black/70 text-white text-xs font-bold px-1 rounded">${value}</span></div>`;
+    }
+
+    function createPieceElement(piece, isPlayer = true, index = 0) {
+      if (!isPlayer) {
+        return `<div class="w-16 h-28 bg-gradient-to-br from-red-700 to-red-900 rounded-xl shadow-lg border-2 border-red-600 flex items-center justify-center text-2xl">🚌</div>`;
+      }
+
+      const isSelected = gameState.selectedPiece && gameState.selectedPiece.id === piece.id;
+      return `
+        <div class="domino-piece w-20 h-32 bg-gradient-to-br from-amber-50 to-amber-100 rounded-xl shadow-xl border-3 border-amber-300 flex flex-col overflow-hidden ${isSelected ? 'selected pulse-glow' : ''} animate-slide" 
+             style="animation-delay: ${index * 0.05}s"
+             data-piece-id="${piece.id}"
+             draggable="true">
+          <div class="flex-1 flex items-center justify-center relative border-b-2 border-amber-300 bg-white/50 p-1">
+            ${createImageElement(piece.top)}
+          </div>
+          <div class="flex-1 flex items-center justify-center relative bg-white/50 p-1">
+            ${createImageElement(piece.bottom)}
+          </div>
+        </div>
+      `;
+    }
+
+    function createBoardPiece(item, index) {
+      const top = item.flipped ? item.piece.bottom : item.piece.top;
+      const bottom = item.flipped ? item.piece.top : item.piece.bottom;
+      
+      const isVertical = item.vertical || false;
+      const orientationClass = isVertical ? 'flex-row' : 'flex-col';
+      const dimensionClass = isVertical ? 'w-28 h-16' : 'w-16 h-28';
+      const borderClass = isVertical ? 'border-r' : 'border-b';
+      
+      return `
+        <div class="board-piece ${dimensionClass} bg-gradient-to-br from-amber-50 to-amber-100 rounded-lg shadow-lg border-2 border-amber-400 flex ${orientationClass} overflow-hidden cursor-pointer hover:shadow-xl transition-all" 
+             data-board-index="${index}"
+             onclick="rotateBoardPiece(${index})">
+          <div class="flex-1 flex items-center justify-center relative ${borderClass} border-amber-300 bg-white/50 p-1">
+            ${createImageElement(top, 'small')}
+          </div>
+          <div class="flex-1 flex items-center justify-center relative bg-white/50 p-1">
+            ${createImageElement(bottom, 'small')}
+          </div>
+        </div>
+      `;
+    }
+
+    function getBoardEnds() {
+      if (gameState.board.length === 0) return { left: null, right: null };
+      return {
+        left: gameState.board[0].leftEnd,
+        right: gameState.board[gameState.board.length - 1].rightEnd
+      };
+    }
+
+    function canPlayPiece(piece, end) {
+      if (end === null) return true;
+      return piece.top === end || piece.bottom === end;
+    }
+
+    function hasValidMove(hand) {
+      const ends = getBoardEnds();
+      return hand.some(p => canPlayPiece(p, ends.left) || canPlayPiece(p, ends.right));
+    }
+
+    function rotateBoardPiece(index) {
+      if (index >= 0 && index < gameState.board.length) {
+        gameState.board[index].vertical = !gameState.board[index].vertical;
+        saveGame();
+        render();
+      }
+    }
+
+    function placePieceOnBoard(piece, side) {
+      const ends = getBoardEnds();
+      
+      if (gameState.board.length === 0) {
+        // Primera ficha del juego
+        gameState.board.push({
+          piece: piece,
+          leftEnd: piece.top,
+          rightEnd: piece.bottom,
+          flipped: false
+        });
+        return true;
+      } 
+      
+      if (side === 'left') {
+        // Colocar en el extremo izquierdo
+        const targetEnd = ends.left;
+        
+        // Validar que la ficha coincida con el extremo
+        if (piece.top !== targetEnd && piece.bottom !== targetEnd) {
+          return false;
+        }
+        
+        // Determinar si hay que girar la ficha
+        const flipped = piece.bottom === targetEnd;
+        const newLeftEnd = flipped ? piece.top : piece.bottom;
+        
+        gameState.board.unshift({
+          piece: piece,
+          leftEnd: newLeftEnd,
+          rightEnd: targetEnd,
+          flipped: flipped
+        });
+        return true;
+      } 
+      
+      if (side === 'right') {
+        // Colocar en el extremo derecho
+        const targetEnd = ends.right;
+        
+        // Validar que la ficha coincida con el extremo
+        if (piece.top !== targetEnd && piece.bottom !== targetEnd) {
+          return false;
+        }
+        
+        // Determinar si hay que girar la ficha
+        const flipped = piece.top === targetEnd;
+        const newRightEnd = flipped ? piece.bottom : piece.top;
+        
+        gameState.board.push({
+          piece: piece,
+          leftEnd: targetEnd,
+          rightEnd: newRightEnd,
+          flipped: flipped
+        });
+        return true;
+      }
+      
+      return false;
+    }
+
+    function selectPiece(pieceId) {
+      const piece = gameState.playerHand.find(p => p.id === pieceId);
+      if (!piece) return;
+      
+      gameState.selectedPiece = gameState.selectedPiece && gameState.selectedPiece.id === pieceId ? null : piece;
+      render();
+    }
+
+    function playerPlacePiece(side) {
+      if (!gameState.selectedPiece || gameState.currentPlayer !== 'player1') return;
+      
+      if (!placePieceOnBoard(gameState.selectedPiece, side)) return;
+      
+      gameState.playerHand = gameState.playerHand.filter(p => p.id !== gameState.selectedPiece.id);
+      gameState.selectedPiece = null;
+      
+      if (gameState.playerHand.length === 0) {
+        endGame('player1');
+        return;
+      }
+      
+      gameState.currentPlayer = 'player2';
+      saveGame();
+      render();
+      
+      if (gameState.mode === 'ai') {
+        setTimeout(aiMove, 1000);
+      }
+    }
+
+    function playerPassTurn() {
+      if (hasValidMove(gameState.playerHand)) return;
+      
+      gameState.currentPlayer = 'player2';
+      saveGame();
+      render();
+      
+      if (gameState.mode === 'ai') {
+        setTimeout(aiMove, 1000);
+      }
+    }
+
+    function aiMove() {
+      if (gameState.currentPlayer !== 'player2' || !gameState.gameActive) return;
+      
+      document.getElementById('ai-thinking').classList.remove('hidden');
+      
+      const ends = getBoardEnds();
+      let validPieces = [];
+      
+      gameState.opponentHand.forEach(piece => {
+        if (canPlayPiece(piece, ends.left)) validPieces.push({ piece, side: 'left' });
+        if (canPlayPiece(piece, ends.right)) validPieces.push({ piece, side: 'right' });
+      });
+      
+      if (validPieces.length > 0) {
+        const { piece, side } = validPieces[Math.floor(Math.random() * validPieces.length)];
+        placePieceOnBoard(piece, side);
+        gameState.opponentHand = gameState.opponentHand.filter(p => p.id !== piece.id);
+        
+        if (gameState.opponentHand.length === 0) {
+          document.getElementById('ai-thinking').classList.add('hidden');
+          endGame('player2');
+          return;
+        }
+      } else if (!hasValidMove(gameState.opponentHand)) {
+        document.getElementById('ai-thinking').classList.add('hidden');
+        endGame(hasValidMove(gameState.playerHand) ? 'player1' : 'draw');
+        return;
+      }
+      
+      gameState.currentPlayer = 'player1';
+      saveGame();
+      document.getElementById('ai-thinking').classList.add('hidden');
+      render();
+    }
+
+    function endGame(winner) {
+      gameState.gameActive = false;
+      
+      let winText = '';
+      if (winner === 'player1') {
+        winText = gameState.mode === 'ai' ? '¡Ganaste a la IA!' : `¡${gameState.player1Name} gana!`;
+      } else if (winner === 'player2') {
+        winText = gameState.mode === 'ai' ? '¡La IA te venció!' : `¡${gameState.player2Name} gana!`;
+      } else {
+        winText = '¡Empate!';
+      }
+      
+      document.getElementById('winner-text').textContent = winText;
+      document.getElementById('winner-desc').textContent = `Partida terminada`;
+      document.getElementById('winner-modal').classList.remove('hidden');
+    }
+
+    function render() {
+      document.getElementById('current-player-display').textContent = 
+        gameState.currentPlayer === 'player1' ? gameState.player1Name : gameState.player2Name;
+      
+      document.getElementById('hand-count').textContent = gameState.playerHand.length;
+      document.getElementById('opponent-count').textContent = gameState.opponentHand.length;
+      document.getElementById('opponent-name').textContent = gameState.player2Name;
+      document.getElementById('opponent-emoji').textContent = gameState.mode === 'ai' ? '🤖' : '👤';
+      
+      // Render player hand
+      const handEl = document.getElementById('player-hand');
+      handEl.innerHTML = gameState.playerHand.map((p, i) => createPieceElement(p, true, i)).join('');
+      
+      // Render opponent hand
+      const oppEl = document.getElementById('opponent-hand');
+      if (gameState.mode === '2players' && gameState.currentPlayer === 'player2') {
+        oppEl.innerHTML = gameState.opponentHand.map((p, i) => createPieceElement(p, true, i)).join('');
+      } else {
+        oppEl.innerHTML = gameState.opponentHand.map(p => createPieceElement(p, false)).join('');
+      }
+      
+      // Render board
+      const boardEl = document.getElementById('board');
+      if (gameState.board.length === 0) {
+        boardEl.innerHTML = '<div id="empty-board" class="text-green-400/50 text-center py-8 px-12"><span class="text-6xl block mb-2">🚌</span><p class="text-lg">Selecciona una ficha para comenzar</p></div>';
+      } else {
+        const ends = getBoardEnds();
+        const canLeft = gameState.selectedPiece && canPlayPiece(gameState.selectedPiece, ends.left);
+        const canRight = gameState.selectedPiece && canPlayPiece(gameState.selectedPiece, ends.right);
+        
+        let html = '';
+        if (gameState.selectedPiece) {
+          html += `<div class="board-slot w-16 h-28 border-2 border-dashed ${canLeft ? 'valid-drop' : 'border-gray-600 opacity-30'} rounded-lg flex items-center justify-center" onclick="${canLeft ? 'playerPlacePiece("left")' : ''}"><span class="text-2xl">${canLeft ? '👈' : '🚫'}</span></div>`;
+        }
+        html += gameState.board.map((item, idx) => createBoardPiece(item, idx)).join('');
+        if (gameState.selectedPiece) {
+          html += `<div class="board-slot w-16 h-28 border-2 border-dashed ${canRight ? 'valid-drop' : 'border-gray-600 opacity-30'} rounded-lg flex items-center justify-center" onclick="${canRight ? 'playerPlacePiece("right")' : ''}"><span class="text-2xl">${canRight ? '👉' : '🚫'}</span></div>`;
+        }
+        boardEl.innerHTML = html;
+      }
+      
+      // Show pass button
+      const passBtn = document.getElementById('pass-btn');
+      if (gameState.currentPlayer === 'player1' && gameState.board.length > 0 && !hasValidMove(gameState.playerHand)) {
+        passBtn.classList.remove('hidden');
+      } else {
+        passBtn.classList.add('hidden');
+      }
+      
+      // Setup event listeners for pieces
+      setupPieceListeners();
+    }
+
+    function setupPieceListeners() {
+      document.querySelectorAll('.domino-piece').forEach(el => {
+        const pieceId = parseInt(el.dataset.pieceId);
+        
+        // Click for mobile/selection
+        el.addEventListener('click', (e) => {
+          e.stopPropagation();
+          if (gameState.currentPlayer === 'player1') {
+            selectPiece(pieceId);
+          }
+        });
+        
+        // Drag for desktop
+        el.addEventListener('dragstart', (e) => {
+          if (gameState.currentPlayer !== 'player1') {
+            e.preventDefault();
+            return;
+          }
+          const piece = gameState.playerHand.find(p => p.id === pieceId);
+          if (!piece) {
+            e.preventDefault();
+            return;
+          }
+          gameState.selectedPiece = piece;
+          e.dataTransfer.effectAllowed = 'move';
+          e.dataTransfer.setData('pieceId', pieceId);
+        });
+        
+        el.addEventListener('dragend', () => {
+          gameState.selectedPiece = null;
+        });
+      });
+      
+      // Board drop zones with better event handling
+      const boardContainer = document.getElementById('board');
+      
+      boardContainer.addEventListener('dragover', (e) => {
+        e.preventDefault();
+        e.dataTransfer.dropEffect = 'move';
+      });
+      
+      boardContainer.addEventListener('drop', (e) => {
+        e.preventDefault();
+        e.stopPropagation();
+        
+        if (!gameState.selectedPiece || gameState.currentPlayer !== 'player1') return;
+        
+        // Try to place on the closest valid side
+        const rect = boardContainer.getBoundingClientRect();
+        const clickX = e.clientX - rect.left;
+        const containerWidth = rect.width;
+        
+        // If clicked on left third, place left. If right third, place right
+        if (gameState.board.length > 0) {
+          const side = clickX < containerWidth / 3 ? 'left' : 'right';
+          playerPlacePiece(side);
+        }
+      });
+      
+      // Individual drop zones for board slots
+      document.querySelectorAll('.board-slot').forEach(el => {
+        el.addEventListener('dragover', (e) => {
+          e.preventDefault();
+          e.dataTransfer.dropEffect = 'move';
+          el.style.opacity = '0.8';
+        });
+        
+        el.addEventListener('dragleave', () => {
+          el.style.opacity = '1';
+        });
+        
+        el.addEventListener('drop', (e) => {
+          e.preventDefault();
+          e.stopPropagation();
+          el.style.opacity = '1';
+          
+          if (!gameState.selectedPiece || gameState.currentPlayer !== 'player1') return;
+          
+          const side = el.textContent.includes('👈') ? 'left' : 'right';
+          playerPlacePiece(side);
+        });
+      });
+    }
+
+    render();
+  </script>
+ <script>(function(){function c(){var b=a.contentDocument||a.contentWindow.document;if(b){var d=b.createElement('script');d.innerHTML="window.__CF$cv$params={r:'9ca2d691a4e2cfd7',t:'MTc3MDQ2Njc5My4wMDAwMDA='};var a=document.createElement('script');a.nonce='';a.src='/cdn-cgi/challenge-platform/scripts/jsd/main.js';document.getElementsByTagName('head')[0].appendChild(a);";b.getElementsByTagName('head')[0].appendChild(d)}}if(document.body){var a=document.createElement('iframe');a.height=1;a.width=1;a.style.position='absolute';a.style.top=0;a.style.left=0;a.style.border='none';a.style.visibility='hidden';document.body.appendChild(a);if('loading'!==document.readyState)c();else if(window.addEventListener)document.addEventListener('DOMContentLoaded',c);else{var e=document.onreadystatechange||function(){};document.onreadystatechange=function(b){e(b);'loading'!==document.readyState&&(document.onreadystatechange=e,c())}}}})();</script></body>
+</html>

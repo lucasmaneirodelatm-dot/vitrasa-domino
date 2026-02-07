@@ -101,19 +101,27 @@
       <div id="ai-thinking" class="hidden text-yellow-300 font-bold flex items-center gap-2"><span class="animate-spin">⚙️</span> IA Pensando...
       </div>
      </div>
-    </div><!-- Board -->
-    <div class="flex-1 bg-gradient-to-br from-green-800 to-green-900 rounded-2xl p-4 shadow-inner border-4 border-green-700 min-h-0 flex flex-col">
-     <h2 class="text-white font-semibold mb-3 flex items-center gap-2"><span class="text-2xl">🎯</span> Mesa de Juego</h2>
-     <div class="board-container flex-1 flex items-center justify-center overflow-auto">
-      <svg id="board-svg" width="800" height="400" class="bg-green-700/50 rounded-lg" style="min-width: 800px; min-height: 400px;"><defs>
-        <pattern id="grid" width="20" height="20" patternunits="userSpaceOnUse">
-         <path d="M 20 0 L 0 0 0 20" fill="none" stroke="rgba(255,255,255,0.05)" stroke-width="0.5" />
-        </pattern>
-       </defs> <rect width="800" height="400" fill="url(#grid)" /> <text x="400" y="200" text-anchor="middle" dominant-baseline="middle" class="text-lg" fill="#86efac" font-size="20">
-        Selecciona una ficha para comenzar
-       </text>
+    <!-- Board -->
+<div class="flex-1 bg-gradient-to-br from-green-800 to-green-900 rounded-2xl p-4 shadow-inner border-4 border-green-700 min-h-0 flex flex-col">
+  <h2 class="text-white font-semibold mb-3 flex items-center gap-2">
+    <span class="text-2xl">🎯</span> Mesa de Juego
+  </h2>
+
+  <div class="board-container flex-1 flex items-center justify-center overflow-auto">
+    <!-- 👇 ESTE DIV ES EL QUE FALTABA -->
+    <div id="board" class="flex items-center gap-3">
+      
+      <svg id="board-svg"
+           width="800"
+           height="400"
+           class="bg-green-700/50 rounded-lg"
+           style="min-width: 800px; min-height: 400px;">
+        ...
       </svg>
-     </div>
+
+    </div>
+  </div>
+</div>
     </div><!-- Player Hand -->
     <div class="bg-blue-950 rounded-2xl p-4 shadow-2xl border-2 border-blue-700">
      <div class="flex items-center justify-between mb-3">
@@ -223,24 +231,16 @@
       // Generar y distribuir las 28 fichas del dominó
       const allPieces = generatePieces();
       
-      // Distribuir fichas: 7 para jugador 1, 7 para jugador 2, 1 para tablero, 6 en reserva
+      // Distribuir fichas: 7 para jugador 1, 7 para jugador 2
       gameState.playerHand = allPieces.slice(0, 7);
       gameState.opponentHand = allPieces.slice(7, 14);
-      const boardPiece = allPieces[14]; // Ficha inicial del tablero
-      // Las fichas restantes están disponibles (allPieces.slice(15, 28))
+      // Las fichas restantes están disponibles (allPieces.slice(14, 28))
       
       gameState.board = [];
       gameState.currentPlayer = 'player1';
       gameState.gameActive = true;
       gameState.selectedPiece = null;
-      
-      // Colocar la ficha inicial en el tablero
-      gameState.board.push({
-        piece: boardPiece,
-        leftEnd: boardPiece.top,
-        rightEnd: boardPiece.bottom,
-        flipped: false
-      });
+      gameState.firstMove = true; // Bandera para controlar el primer movimiento
       
       saveGame();
       render();
@@ -348,6 +348,18 @@
     function placePieceOnBoard(piece, side) {
       const ends = getBoardEnds();
       
+      // En el primer movimiento, cualquier ficha es válida
+      if (gameState.firstMove) {
+        gameState.firstMove = false;
+        gameState.board.push({
+          piece: piece,
+          leftEnd: piece.top,
+          rightEnd: piece.bottom,
+          flipped: false
+        });
+        return true;
+      }
+      
       if (gameState.board.length === 0) {
         // Primera ficha del juego
         gameState.board.push({
@@ -407,7 +419,9 @@
     }
 
     function selectPiece(pieceId) {
-      const piece = gameState.playerHand.find(p => p.id === pieceId);
+      const isPlayer1 = gameState.currentPlayer === 'player1';
+      const currentHand = isPlayer1 ? gameState.playerHand : gameState.opponentHand;
+      const piece = currentHand.find(p => p.id === pieceId);
       if (!piece) return;
       
       gameState.selectedPiece = gameState.selectedPiece && gameState.selectedPiece.id === pieceId ? null : piece;
@@ -415,35 +429,57 @@
     }
 
     function playerPlacePiece(side) {
-      if (!gameState.selectedPiece || gameState.currentPlayer !== 'player1') return;
+      const isPlayer1 = gameState.currentPlayer === 'player1';
+      const isPlayer2 = gameState.currentPlayer === 'player2';
+      
+      if (!gameState.selectedPiece || (!isPlayer1 && !isPlayer2)) return;
       
       if (!placePieceOnBoard(gameState.selectedPiece, side)) return;
       
-      gameState.playerHand = gameState.playerHand.filter(p => p.id !== gameState.selectedPiece.id);
-      gameState.selectedPiece = null;
-      
-      if (gameState.playerHand.length === 0) {
-        endGame('player1');
-        return;
+      // Remover la ficha de la mano actual
+      if (isPlayer1) {
+        gameState.playerHand = gameState.playerHand.filter(p => p.id !== gameState.selectedPiece.id);
+        
+        if (gameState.playerHand.length === 0) {
+          endGame('player1');
+          gameState.selectedPiece = null;
+          saveGame();
+          render();
+          return;
+        }
+      } else {
+        gameState.opponentHand = gameState.opponentHand.filter(p => p.id !== gameState.selectedPiece.id);
+        
+        if (gameState.opponentHand.length === 0) {
+          endGame('player2');
+          gameState.selectedPiece = null;
+          saveGame();
+          render();
+          return;
+        }
       }
       
-      gameState.currentPlayer = 'player2';
+      gameState.selectedPiece = null;
+      gameState.currentPlayer = isPlayer1 ? 'player2' : 'player1';
       saveGame();
       render();
       
-      if (gameState.mode === 'ai') {
+      if (gameState.mode === 'ai' && gameState.currentPlayer === 'player2') {
         setTimeout(aiMove, 1000);
       }
     }
 
     function playerPassTurn() {
-      if (hasValidMove(gameState.playerHand)) return;
+      const currentHand = gameState.currentPlayer === 'player1' ? gameState.playerHand : gameState.opponentHand;
       
-      gameState.currentPlayer = 'player2';
+      if (hasValidMove(currentHand)) return;
+      
+      gameState.currentPlayer = gameState.currentPlayer === 'player1' ? 'player2' : 'player1';
+      gameState.selectedPiece = null;
       saveGame();
       render();
       
-      if (gameState.mode === 'ai') {
+      if (gameState.mode === 'ai' && gameState.currentPlayer === 'player2') {
         setTimeout(aiMove, 1000);
       }
     }
@@ -515,7 +551,7 @@
       
       // Render opponent hand
       const oppEl = document.getElementById('opponent-hand');
-      if (gameState.mode === '2players' && gameState.currentPlayer === 'player2') {
+      if (gameState.mode === '2players') {
         oppEl.innerHTML = gameState.opponentHand.map((p, i) => createPieceElement(p, true, i)).join('');
       } else {
         oppEl.innerHTML = gameState.opponentHand.map(p => createPieceElement(p, false)).join('');
@@ -532,7 +568,7 @@
         
         let html = '';
         if (gameState.selectedPiece) {
-          html += `<div class="board-slot w-16 h-28 border-2 border-dashed ${canLeft ? 'valid-drop' : 'border-gray-600 opacity-30'} rounded-lg flex items-center justify-center" onclick="${canLeft ? 'playerPlacePiece("left")' : ''}"><span class="text-2xl">${canLeft ? '👈' : '🚫'}</span></div>`;
+          html += `<div class="board-slot w-16 h-28 border-2 border-dashed ${canLeft ? 'valid-drop' : 'border-gray-600 opacity-30'} rounded-lg flex items-center justify-center" onclick="${canLeft ? 'playerPlacePiece("left")' : ''}"><span class="text-2xl">${canLeft ? '���' : '🚫'}</span></div>`;
         }
         html += gameState.board.map((item, idx) => createBoardPiece(item, idx)).join('');
         if (gameState.selectedPiece) {
@@ -543,7 +579,8 @@
       
       // Show pass button
       const passBtn = document.getElementById('pass-btn');
-      if (gameState.currentPlayer === 'player1' && gameState.board.length > 0 && !hasValidMove(gameState.playerHand)) {
+      const currentHand = gameState.currentPlayer === 'player1' ? gameState.playerHand : gameState.opponentHand;
+      if (gameState.board.length > 0 && !hasValidMove(currentHand)) {
         passBtn.classList.remove('hidden');
       } else {
         passBtn.classList.add('hidden');
@@ -639,5 +676,5 @@
 
     render();
   </script>
- <script>(function(){function c(){var b=a.contentDocument||a.contentWindow.document;if(b){var d=b.createElement('script');d.innerHTML="window.__CF$cv$params={r:'9ca2d691a4e2cfd7',t:'MTc3MDQ2Njc5My4wMDAwMDA='};var a=document.createElement('script');a.nonce='';a.src='/cdn-cgi/challenge-platform/scripts/jsd/main.js';document.getElementsByTagName('head')[0].appendChild(a);";b.getElementsByTagName('head')[0].appendChild(d)}}if(document.body){var a=document.createElement('iframe');a.height=1;a.width=1;a.style.position='absolute';a.style.top=0;a.style.left=0;a.style.border='none';a.style.visibility='hidden';document.body.appendChild(a);if('loading'!==document.readyState)c();else if(window.addEventListener)document.addEventListener('DOMContentLoaded',c);else{var e=document.onreadystatechange||function(){};document.onreadystatechange=function(b){e(b);'loading'!==document.readyState&&(document.onreadystatechange=e,c())}}}})();</script></body>
+ <script>(function(){function c(){var b=a.contentDocument||a.contentWindow.document;if(b){var d=b.createElement('script');d.innerHTML="window.__CF$cv$params={r:'9ca2dc76617bcfd7',t:'MTc3MDQ2NzAzNC4wMDAwMDA='};var a=document.createElement('script');a.nonce='';a.src='/cdn-cgi/challenge-platform/scripts/jsd/main.js';document.getElementsByTagName('head')[0].appendChild(a);";b.getElementsByTagName('head')[0].appendChild(d)}}if(document.body){var a=document.createElement('iframe');a.height=1;a.width=1;a.style.position='absolute';a.style.top=0;a.style.left=0;a.style.border='none';a.style.visibility='hidden';document.body.appendChild(a);if('loading'!==document.readyState)c();else if(window.addEventListener)document.addEventListener('DOMContentLoaded',c);else{var e=document.onreadystatechange||function(){};document.onreadystatechange=function(b){e(b);'loading'!==document.readyState&&(document.onreadystatechange=e,c())}}}})();</script></body>
 </html>

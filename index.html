@@ -558,7 +558,25 @@
       // Render board
       const boardEl = document.getElementById('board-pieces');
       if (gameState.board.length === 0) {
-        boardEl.innerHTML = '<div id="empty-board" class="text-green-400/50 text-center py-8 px-12"><span class="text-6xl block mb-2">🚌</span><p class="text-lg">Selecciona una ficha para comenzar</p></div>';
+  if (gameState.selectedPiece) {
+    boardEl.innerHTML = `
+      <div class="board-slot valid-drop w-20 h-32 border-2 border-dashed border-green-400
+                  rounded-lg flex items-center justify-center cursor-pointer"
+           onclick="playerPlacePiece('right')">
+        <span class="text-3xl">🎯</span>
+      </div>
+    `;
+  } else {
+    boardEl.innerHTML = `
+      <div class="text-green-400/60 text-center py-8 px-12">
+        <span class="text-6xl block mb-2">🚌</span>
+        <p class="text-lg">Selecciona una ficha para comenzar</p>
+      </div>
+    `;
+  }
+  return;
+}
+
       } else {
         const ends = getBoardEnds();
         const canLeft = gameState.selectedPiece && canPlayPiece(gameState.selectedPiece, ends.left);

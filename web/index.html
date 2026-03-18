@@ -1,0 +1,903 @@
+<!doctype html>
+<html lang="es" class="h-full">
+ <head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Dominó Vitrasa</title>
+  <script src="https://cdn.tailwindcss.com/3.4.17"></script>
+  <script src="https://cdn.jsdelivr.net/npm/lucide@0.263.0/dist/umd/lucide.min.js"></script>
+  <script src="/_sdk/element_sdk.js"></script>
+  <link href="https://fonts.googleapis.com/css2?family=Bebas+Neue&amp;family=Inter:wght@400;600;700&amp;display=swap" rel="stylesheet">
+  <style>
+    * { box-sizing: border-box; }
+    body { font-family: 'Inter', sans-serif; }
+    .title-font { font-family: 'Bebas Neue', sans-serif; }
+    
+    .domino-tile {
+      width: 120px;
+      height: 60px;
+      background: linear-gradient(145deg, #f8f9fa, #e9ecef);
+      border-radius: 8px;
+      display: flex;
+      box-shadow: 0 4px 15px rgba(0,0,0,0.2), inset 0 1px 0 rgba(255,255,255,0.8);
+      cursor: grab;
+      transition: all 0.3s ease;
+      position: relative;
+      overflow: hidden;
+    }
+    
+    .domino-tile.vertical {
+      width: 60px;
+      height: 120px;
+    }
+    
+    .domino-tile.vertical .domino-half {
+      width: 100%;
+      height: 50%;
+      flex-direction: column;
+    }
+    
+    .domino-tile.vertical .domino-divider {
+      left: 10%;
+      top: 50%;
+      width: 80%;
+      height: 2px;
+      transform: translateY(-50%);
+    }
+    
+    .domino-tile.placed {
+      cursor: pointer;
+    }
+    
+    .domino-tile.placed:hover {
+      filter: brightness(1.1);
+    }
+    
+    .domino-tile.placed.is-vertical {
+      width: 60px;
+      height: 120px;
+    }
+    
+    .domino-tile.placed.is-vertical .domino-half {
+      width: 100%;
+      height: 50%;
+      flex-direction: column;
+    }
+    
+    .domino-tile.placed.is-vertical .domino-divider {
+      left: 10%;
+      top: 50%;
+      width: 80%;
+      height: 2px;
+      transform: translateY(-50%);
+    }
+    
+    .domino-tile:hover {
+      transform: translateY(-4px);
+      box-shadow: 0 8px 25px rgba(0,0,0,0.3);
+    }
+    
+    .domino-tile.dragging {
+      opacity: 0.8;
+      cursor: grabbing;
+      transform: rotate(5deg) scale(1.1);
+    }
+    
+    .domino-half {
+      width: 50%;
+      height: 100%;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      position: relative;
+      overflow: hidden;
+    }
+    
+    .domino-half img {
+      width: 100%;
+      height: 100%;
+      object-fit: cover;
+    }
+    
+    .domino-divider {
+      position: absolute;
+      left: 50%;
+      top: 10%;
+      height: 80%;
+      width: 2px;
+      background: linear-gradient(to bottom, #adb5bd, #6c757d, #adb5bd);
+      transform: translateX(-50%);
+    }
+    
+    .board-slot {
+      width: 130px;
+      height: 70px;
+      border: 3px dashed rgba(255,255,255,0.4);
+      border-radius: 10px;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      transition: all 0.3s ease;
+      background: rgba(255,255,255,0.1);
+    }
+    
+    .board-slot.highlight {
+      border-color: #ffd43b;
+      background: rgba(255,212,59,0.2);
+      box-shadow: 0 0 20px rgba(255,212,59,0.4);
+    }
+    
+    .board-slot.placed {
+      border: none;
+      background: transparent;
+    }
+    
+    .player-hand {
+      display: flex;
+      gap: 10px;
+      flex-wrap: wrap;
+      justify-content: center;
+      padding: 20px;
+      background: rgba(0,0,0,0.3);
+      border-radius: 16px;
+      min-height: 100px;
+    }
+    
+    .game-board {
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      gap: 5px;
+      flex-wrap: wrap;
+      min-height: 200px;
+      padding: 30px;
+      background: linear-gradient(135deg, #1e3a5f 0%, #0d253f 100%);
+      border-radius: 20px;
+      box-shadow: inset 0 4px 20px rgba(0,0,0,0.4);
+    }
+    
+    .bus-icon {
+      font-size: 2rem;
+    }
+    
+    @keyframes bounce-in {
+      0% { transform: scale(0); opacity: 0; }
+      50% { transform: scale(1.2); }
+      100% { transform: scale(1); opacity: 1; }
+    }
+    
+    .animate-bounce-in {
+      animation: bounce-in 0.4s ease-out;
+    }
+    
+    @keyframes pulse-glow {
+      0%, 100% { box-shadow: 0 0 10px rgba(255,212,59,0.4); }
+      50% { box-shadow: 0 0 30px rgba(255,212,59,0.8); }
+    }
+    
+    .pulse-glow {
+      animation: pulse-glow 1.5s ease-in-out infinite;
+    }
+    
+    .vitrasa-gradient {
+      background: linear-gradient(135deg, #00539f 0%, #0077cc 50%, #00a3e0 100%);
+    }
+    
+    .toast {
+      position: fixed;
+      bottom: 20px;
+      left: 50%;
+      transform: translateX(-50%);
+      padding: 12px 24px;
+      border-radius: 8px;
+      color: white;
+      font-weight: 600;
+      z-index: 1000;
+      opacity: 0;
+      transition: opacity 0.3s ease;
+    }
+    
+    .toast.show {
+      opacity: 1;
+    }
+    
+    .toast.success { background: #10b981; }
+    .toast.error { background: #ef4444; }
+    .toast.info { background: #3b82f6; }
+
+    .player-badge {
+      display: inline-block;
+      padding: 4px 12px;
+      border-radius: 20px;
+      font-size: 12px;
+      font-weight: bold;
+    }
+
+    .player-badge.active {
+      background: #ffd43b;
+      color: #0077cc;
+    }
+
+    .player-badge.inactive {
+      background: rgba(255,255,255,0.2);
+      color: white;
+    }
+
+    .players-scoreboard {
+      display: grid;
+      grid-template-columns: repeat(auto-fit, minmax(150px, 1fr));
+      gap: 10px;
+      margin-bottom: 20px;
+    }
+
+    .player-score-card {
+      background: rgba(0,0,0,0.3);
+      border-radius: 12px;
+      padding: 15px;
+      text-align: center;
+      border: 2px solid transparent;
+      transition: all 0.3s;
+    }
+
+    .player-score-card.active {
+      border-color: #ffd43b;
+      background: rgba(255,212,59,0.1);
+      box-shadow: 0 0 15px rgba(255,212,59,0.3);
+    }
+
+    .player-score-card .player-name {
+      font-weight: bold;
+      margin-bottom: 8px;
+      word-break: break-word;
+    }
+
+    .player-score-card .player-points {
+      font-size: 24px;
+      font-weight: bold;
+      color: #ffd43b;
+    }
+
+    .player-score-card .tiles-left {
+      font-size: 12px;
+      color: #adb5bd;
+      margin-top: 8px;
+    }
+  </style>
+  <style>body { box-sizing: border-box; }</style>
+  <script src="/_sdk/data_sdk.js" type="text/javascript"></script>
+ </head>
+ <body class="h-full bg-gradient-to-br from-slate-900 via-blue-900 to-slate-800 text-white overflow-auto">
+  <div id="app" class="h-full w-full flex flex-col">
+   <!-- Mode Selector Screen -->
+   <div id="mode-selector" class="vitrasa-gradient p-6 shadow-lg flex-1 flex flex-col items-center justify-center">
+    <div class="max-w-2xl text-center">
+     <div class="w-20 h-20 bg-white rounded-full flex items-center justify-center shadow-lg mx-auto mb-6">
+      <span class="text-5xl">🚌</span>
+     </div>
+     <h1 class="title-font text-4xl mb-2">DOMINÓ VITRASA</h1>
+     <p class="text-blue-200 text-lg mb-8">Transporte Urbano de Vigo</p>
+     <h2 class="text-2xl font-bold mb-8">¿Cómo deseas jugar?</h2>
+     <div class="flex gap-6 justify-center flex-wrap">
+      <button id="btn-solo" class="bg-white hover:bg-yellow-300 text-blue-900 font-bold px-8 py-4 rounded-lg transition flex flex-col items-center gap-2 text-lg"> <i data-lucide="user" class="w-8 h-8"></i> Solo </button> <button id="btn-multiplayer" class="bg-white hover:bg-yellow-300 text-blue-900 font-bold px-8 py-4 rounded-lg transition flex flex-col items-center gap-2 text-lg"> <i data-lucide="users" class="w-8 h-8"></i> Multijugador </button>
+     </div>
+    </div>
+   </div><!-- Multiplayer Setup Screen -->
+   <div id="multiplayer-setup" class="vitrasa-gradient p-6 shadow-lg flex-1 flex flex-col items-center justify-center hidden">
+    <div class="max-w-2xl w-full">
+     <h2 class="text-3xl font-bold mb-6 text-center">Configurar Jugadores</h2>
+     <div class="grid grid-cols-1 md:grid-cols-2 gap-4 mb-8">
+      <div>
+       <label class="block text-sm font-semibold mb-2">Jugador 1 (Tú)</label> <input type="text" id="mp-player-1" class="w-full px-4 py-3 rounded bg-white/20 text-white placeholder-blue-300 border border-white/30 focus:outline-none focus:border-yellow-400" placeholder="Tu nombre">
+      </div>
+      <div>
+       <label class="block text-sm font-semibold mb-2">Jugador 2</label> <input type="text" id="mp-player-2" class="w-full px-4 py-3 rounded bg-white/20 text-white placeholder-blue-300 border border-white/30 focus:outline-none focus:border-yellow-400" placeholder="Oponente 1">
+      </div>
+      <div>
+       <label class="block text-sm font-semibold mb-2">Jugador 3 (opcional)</label> <input type="text" id="mp-player-3" class="w-full px-4 py-3 rounded bg-white/20 text-white placeholder-blue-300 border border-white/30 focus:outline-none focus:border-yellow-400" placeholder="Oponente 2">
+      </div>
+      <div>
+       <label class="block text-sm font-semibold mb-2">Jugador 4 (opcional)</label> <input type="text" id="mp-player-4" class="w-full px-4 py-3 rounded bg-white/20 text-white placeholder-blue-300 border border-white/30 focus:outline-none focus:border-yellow-400" placeholder="Oponente 3">
+      </div>
+     </div>
+     <div class="flex gap-4 justify-center">
+      <button id="btn-back-mode" class="bg-gray-600 hover:bg-gray-700 text-white font-bold px-6 py-3 rounded-lg transition">Atrás</button> <button id="btn-start-multiplayer" class="bg-yellow-400 hover:bg-yellow-300 text-blue-900 font-bold px-6 py-3 rounded-lg transition">Comenzar</button>
+     </div>
+    </div>
+   </div><!-- Game Screen -->
+   <div id="game-screen" class="flex-1 flex flex-col hidden">
+    <!-- Header -->
+    <div class="vitrasa-gradient p-4 shadow-lg">
+     <div class="max-w-6xl mx-auto flex items-center justify-between flex-wrap gap-4">
+      <div class="flex items-center gap-3">
+       <div class="w-12 h-12 bg-white rounded-full flex items-center justify-center shadow-lg"><span class="text-3xl">🚌</span>
+       </div>
+       <div>
+        <h1 id="game-title" class="title-font text-3xl tracking-wide">DOMINÓ VITRASA</h1>
+        <p class="text-blue-200 text-sm">Transporte Urbano de Vigo</p>
+       </div>
+      </div>
+      <div class="flex items-center gap-4 flex-wrap">
+       <div id="solo-score" class="bg-white/20 rounded-lg px-4 py-2 backdrop-blur"><span class="text-sm">Puntos:</span> <span id="score" class="font-bold text-xl ml-2">0</span>
+       </div>
+       <div class="flex gap-2 bg-white/20 rounded-lg p-2 backdrop-blur">
+        <button id="btn-horizontal" class="bg-blue-600 hover:bg-blue-700 text-white px-3 py-1 rounded transition text-sm font-semibold">↔️ H</button> <button id="btn-vertical" class="bg-blue-600 hover:bg-blue-700 text-white px-3 py-1 rounded transition text-sm font-semibold">↕️ V</button>
+       </div><button id="btn-new-game" class="bg-yellow-400 hover:bg-yellow-300 text-blue-900 font-bold px-4 py-2 rounded-lg transition flex items-center gap-2"> <i data-lucide="refresh-cw" class="w-4 h-4"></i> Nueva </button>
+      </div>
+     </div>
+    </div><!-- Main Content -->
+    <main class="flex-1 p-4 overflow-auto">
+     <div class="max-w-6xl mx-auto space-y-6">
+      <!-- Multiplayer Scoreboard -->
+      <div id="multiplayer-section" class="hidden">
+       <div class="players-scoreboard" id="players-scoreboard"></div>
+      </div><!-- Game Info -->
+      <div class="flex justify-center gap-6 text-center flex-wrap">
+       <div class="bg-white/10 rounded-xl px-6 py-3 backdrop-blur">
+        <div class="text-2xl font-bold" id="tiles-remaining">
+         7
+        </div>
+        <div class="text-xs text-blue-300">
+         Fichas restantes
+        </div>
+       </div>
+       <div class="bg-white/10 rounded-xl px-6 py-3 backdrop-blur">
+        <div class="text-2xl font-bold" id="moves-count">
+         0
+        </div>
+        <div class="text-xs text-blue-300">
+         Movimientos
+        </div>
+       </div>
+       <div class="bg-white/10 rounded-xl px-6 py-3 backdrop-blur">
+        <div class="text-2xl font-bold" id="game-status">
+         Jugando
+        </div>
+        <div class="text-xs text-blue-300">
+         Estado
+        </div>
+       </div>
+      </div><!-- Game Board -->
+      <div class="game-board" id="game-board">
+       <div class="text-center text-blue-300">
+        <div class="bus-icon mb-2">
+         🚌
+        </div>
+        <p>Coloca la primera ficha para comenzar</p>
+       </div>
+      </div><!-- Instructions -->
+      <div class="bg-blue-900/50 rounded-xl p-4 backdrop-blur">
+       <h3 class="font-bold text-yellow-400 mb-2 flex items-center gap-2"><i data-lucide="info" class="w-5 h-5"></i> Cómo jugar</h3>
+       <p class="text-blue-200 text-sm">Arrastra las fichas de tu mano al tablero. Las imágenes de los extremos deben coincidir. Cada ficha muestra diferentes líneas y autobuses de Vitrasa. ¡Completa el dominó!</p>
+      </div><!-- Player Hand -->
+      <div class="bg-slate-800/80 rounded-2xl p-4 backdrop-blur">
+       <h3 class="text-center text-blue-300 mb-4 font-semibold flex items-center justify-center gap-2"><i data-lucide="hand" class="w-5 h-5"></i> Tu Mano</h3>
+       <div class="player-hand" id="player-hand"></div>
+      </div>
+     </div>
+    </main>
+   </div><!-- Toast Notification -->
+   <div id="toast" class="toast"></div>
+  </div>
+  <script>
+    const vitrasaData = [
+      { id: 0, name: 'TOUR', color: '#6b7280', image: 'https://lucasmaneirodelatm-dot.github.io/vitrasa-domino/web/images/carta-navidad-2024.svg' },
+      { id: 1, name: 'C3', color: '#ef4444', image: 'https://lucasmaneirodelatm-dot.github.io/vitrasa-domino/web/images/C3.svg' },
+      { id: 2, name: 'PZA. ESPANA', color: '#f97316', image: 'https://lucasmaneirodelatm-dot.github.io/vitrasa-domino/web/images/Servicios-minimos_plaza-espana.svg' },
+      { id: 3, name: 'Bus VITRASA', color: '#eab308', image: 'https://lucasmaneirodelatm-dot.github.io/vitrasa-domino/web/images/bajada-sueldo-empleados-vitrasa.svg' },
+      { id: 4, name: '15C', color: '#22c55e', image: 'https://lucasmaneirodelatm-dot.github.io/vitrasa-domino/web/images/las-perdidas-de-vitrasa.svg' },
+      { id: 5, name: 'C1', color: '#3b82f6', image: 'https://lucasmaneirodelatm-dot.github.io/vitrasa-domino/web/images/C1(3)_a-laxe.svg' },
+      { id: 6, name: 'SOLARIS', color: '#8b5cf6', image: 'https://lucasmaneirodelatm-dot.github.io/vitrasa-domino/web/images/Nueva-flota(4).svg' }
+    ];
+
+    let gameState = {
+      mode: 'solo', // 'solo' or 'multiplayer'
+      tiles: [],
+      playerHands: [],
+      boardTiles: [],
+      leftEnd: null,
+      rightEnd: null,
+      scores: [],
+      currentPlayerIndex: 0,
+      moves: 0,
+      orientation: 'horizontal',
+      placedTileOrientations: {},
+      players: []
+    };
+
+    const defaultConfig = {
+      game_title: 'DOMINÓ VITRASA',
+      player_1_name: 'Jugador 1',
+      player_2_name: 'Jugador 2',
+      player_3_name: 'Jugador 3',
+      player_4_name: 'Jugador 4',
+      primary_color: '#00539f',
+      secondary_color: '#0077cc',
+      accent_color: '#ffd43b',
+      text_color: '#ffffff',
+      background_color: '#0f172a'
+    };
+
+    let config = { ...defaultConfig };
+
+    if (window.elementSdk) {
+      window.elementSdk.init({
+        defaultConfig,
+        onConfigChange: async (newConfig) => {
+          config = { ...defaultConfig, ...newConfig };
+          applyConfig();
+        },
+        mapToCapabilities: (cfg) => ({
+          recolorables: [
+            { get: () => cfg.background_color || defaultConfig.background_color, set: (v) => { cfg.background_color = v; window.elementSdk.setConfig({ background_color: v }); } },
+            { get: () => cfg.primary_color || defaultConfig.primary_color, set: (v) => { cfg.primary_color = v; window.elementSdk.setConfig({ primary_color: v }); } },
+            { get: () => cfg.text_color || defaultConfig.text_color, set: (v) => { cfg.text_color = v; window.elementSdk.setConfig({ text_color: v }); } },
+            { get: () => cfg.accent_color || defaultConfig.accent_color, set: (v) => { cfg.accent_color = v; window.elementSdk.setConfig({ accent_color: v }); } }
+          ],
+          borderables: [],
+          fontEditable: undefined,
+          fontSizeable: undefined
+        }),
+        mapToEditPanelValues: (cfg) => new Map([
+          ['game_title', cfg.game_title || defaultConfig.game_title],
+          ['player_1_name', cfg.player_1_name || defaultConfig.player_1_name],
+          ['player_2_name', cfg.player_2_name || defaultConfig.player_2_name],
+          ['player_3_name', cfg.player_3_name || defaultConfig.player_3_name],
+          ['player_4_name', cfg.player_4_name || defaultConfig.player_4_name]
+        ])
+      });
+    }
+
+    function applyConfig() {
+      document.getElementById('game-title').textContent = config.game_title || defaultConfig.game_title;
+      document.body.style.background = `linear-gradient(135deg, ${config.background_color || defaultConfig.background_color}, ${config.primary_color || defaultConfig.primary_color})`;
+    }
+
+    function generateAllTiles() {
+      const tiles = [];
+      let id = 0;
+      for (let i = 0; i <= 9; i++) {
+        for (let j = i; j <= 9; j++) {
+          tiles.push({ id: id++, left: i, right: j });
+        }
+      }
+      return tiles;
+    }
+
+    function shuffle(array) {
+      const arr = [...array];
+      for (let i = arr.length - 1; i > 0; i--) {
+        const j = Math.floor(Math.random() * (i + 1));
+        [arr[i], arr[j]] = [arr[j], arr[i]];
+      }
+      return arr;
+    }
+
+    function createTileElement(tile, isPlayable = true, isPlaced = false, tileOrientation = 'horizontal') {
+      const div = document.createElement('div');
+      const isVertical = tileOrientation === 'vertical';
+      
+      div.className = `domino-tile animate-bounce-in ${isVertical ? 'vertical' : ''} ${isPlaced ? 'placed' : ''} ${isPlaced && isVertical ? 'is-vertical' : ''}`;
+      div.dataset.tileId = tile.id;
+      div.dataset.left = tile.left;
+      div.dataset.right = tile.right;
+      div.dataset.orientation = tileOrientation;
+      
+      if (isPlayable) {
+        div.draggable = true;
+        div.addEventListener('dragstart', handleDragStart);
+        div.addEventListener('dragend', handleDragEnd);
+      }
+      
+      if (isPlaced) {
+        div.addEventListener('click', () => toggleTileRotation(tile.id));
+      }
+
+      const leftData = vitrasaData[tile.left % vitrasaData.length];
+      const rightData = vitrasaData[tile.right % vitrasaData.length];
+
+      div.innerHTML = `
+        <div class="domino-half">
+          <img src="${leftData.image}" alt="${leftData.name}" loading="lazy" onerror="console.error('Image failed to load:', this.src); this.style.background='${leftData.color}'; this.alt='${leftData.name}';">
+        </div>
+        <div class="domino-divider"></div>
+        <div class="domino-half">
+          <img src="${rightData.image}" alt="${rightData.name}" loading="lazy" onerror="console.error('Image failed to load:', this.src); this.style.background='${rightData.color}'; this.alt='${rightData.name}';">
+        </div>
+      `;
+
+      return div;
+    }
+
+    let draggedTile = null;
+
+    function handleDragStart(e) {
+      draggedTile = e.target.closest('.domino-tile');
+      draggedTile.classList.add('dragging');
+      e.dataTransfer.effectAllowed = 'move';
+      highlightValidSlots();
+    }
+
+    function handleDragEnd(e) {
+      if (draggedTile) {
+        draggedTile.classList.remove('dragging');
+      }
+      draggedTile = null;
+      clearHighlights();
+    }
+
+    function highlightValidSlots() {
+      if (!draggedTile) return;
+      
+      const left = parseInt(draggedTile.dataset.left);
+      const right = parseInt(draggedTile.dataset.right);
+      
+      document.querySelectorAll('.board-slot:not(.placed)').forEach(slot => {
+        const position = slot.dataset.position;
+        
+        if (gameState.boardTiles.length === 0) {
+          slot.classList.add('highlight', 'pulse-glow');
+        } else if (position === 'left' && (left === gameState.leftEnd || right === gameState.leftEnd)) {
+          slot.classList.add('highlight', 'pulse-glow');
+        } else if (position === 'right' && (left === gameState.rightEnd || right === gameState.rightEnd)) {
+          slot.classList.add('highlight', 'pulse-glow');
+        }
+      });
+    }
+
+    function clearHighlights() {
+      document.querySelectorAll('.board-slot').forEach(slot => {
+        slot.classList.remove('highlight', 'pulse-glow');
+      });
+    }
+
+    function showScreen(screenId) {
+      document.getElementById('mode-selector').classList.add('hidden');
+      document.getElementById('multiplayer-setup').classList.add('hidden');
+      document.getElementById('game-screen').classList.add('hidden');
+      document.getElementById(screenId).classList.remove('hidden');
+    }
+
+    function startSoloMode() {
+      gameState.mode = 'solo';
+      gameState.players = ['Tú'];
+      startNewGame();
+      showScreen('game-screen');
+    }
+
+    function startMultiplayerMode() {
+      showScreen('multiplayer-setup');
+    }
+
+    function startMultiplayerGame() {
+      const names = [
+        document.getElementById('mp-player-1').value || 'Jugador 1',
+        document.getElementById('mp-player-2').value || 'Jugador 2',
+        document.getElementById('mp-player-3').value || '',
+        document.getElementById('mp-player-4').value || ''
+      ].filter(name => name.trim());
+
+      if (names.length < 2) {
+        showToast('Necesitas al menos 2 jugadores', 'error');
+        return;
+      }
+
+      gameState.mode = 'multiplayer';
+      gameState.players = names;
+      gameState.currentPlayerIndex = 0;
+      startNewGame();
+      showScreen('game-screen');
+    }
+
+    function startNewGame() {
+      const allTiles = generateAllTiles();
+      const shuffled = shuffle(allTiles);
+      
+      const numPlayers = gameState.players.length;
+      const tilesPerPlayer = 7;
+      const totalTilesDealt = numPlayers * tilesPerPlayer;
+
+      gameState = {
+        ...gameState,
+        tiles: shuffled.slice(totalTilesDealt),
+        playerHands: Array.from({ length: numPlayers }, (_, i) => shuffled.slice(i * tilesPerPlayer, (i + 1) * tilesPerPlayer)),
+        boardTiles: [],
+        leftEnd: null,
+        rightEnd: null,
+        scores: Array(numPlayers).fill(0),
+        currentPlayerIndex: 0,
+        moves: 0,
+        orientation: 'horizontal',
+        placedTileOrientations: {}
+      };
+      
+      saveGame();
+      renderGame();
+      showToast('¡Nueva partida iniciada!', 'success');
+    }
+
+    function saveGame() {
+      localStorage.setItem('vitrasaDomino', JSON.stringify(gameState));
+    }
+
+    function renderGame() {
+      renderBoard();
+      renderHand();
+      updateStats();
+      if (gameState.mode === 'multiplayer') {
+        renderScoreboard();
+      } else {
+        document.getElementById('solo-score').classList.remove('hidden');
+        document.getElementById('multiplayer-section').classList.add('hidden');
+      }
+      applyConfig();
+    }
+
+    function renderScoreboard() {
+      const scoreboard = document.getElementById('players-scoreboard');
+      scoreboard.innerHTML = '';
+
+      gameState.players.forEach((name, index) => {
+        const card = document.createElement('div');
+        card.className = `player-score-card ${index === gameState.currentPlayerIndex ? 'active' : ''}`;
+        card.innerHTML = `
+          <div class="player-name">${name}</div>
+          <div class="player-points">${gameState.scores[index]}</div>
+          <div class="tiles-left">${gameState.playerHands[index]?.length || 0} fichas</div>
+        `;
+        scoreboard.appendChild(card);
+      });
+
+      document.getElementById('multiplayer-section').classList.remove('hidden');
+      document.getElementById('solo-score').classList.add('hidden');
+    }
+
+    function renderBoard() {
+      const board = document.getElementById('game-board');
+      board.innerHTML = '';
+      board.style.flexDirection = 'row';
+
+      if (gameState.boardTiles.length === 0) {
+        const slot = document.createElement('div');
+        slot.className = 'board-slot';
+        slot.dataset.position = 'center';
+        slot.innerHTML = '<span class="text-blue-300 text-sm">Suelta aquí</span>';
+        slot.addEventListener('dragover', handleDragOver);
+        slot.addEventListener('drop', handleDrop);
+        board.appendChild(slot);
+      } else {
+        const leftSlot = document.createElement('div');
+        leftSlot.className = 'board-slot';
+        leftSlot.dataset.position = 'left';
+        leftSlot.innerHTML = `<span class="text-blue-300 text-xs">${gameState.leftEnd}</span>`;
+        leftSlot.addEventListener('dragover', handleDragOver);
+        leftSlot.addEventListener('drop', handleDrop);
+        board.appendChild(leftSlot);
+
+        gameState.boardTiles.forEach(tile => {
+          const tileOrientation = gameState.placedTileOrientations[tile.id] || 'horizontal';
+          const tileEl = createTileElement(tile, false, true, tileOrientation);
+          board.appendChild(tileEl);
+        });
+
+        const rightSlot = document.createElement('div');
+        rightSlot.className = 'board-slot';
+        rightSlot.dataset.position = 'right';
+        rightSlot.innerHTML = `<span class="text-blue-300 text-xs">${gameState.rightEnd}</span>`;
+        rightSlot.addEventListener('dragover', handleDragOver);
+        rightSlot.addEventListener('drop', handleDrop);
+        board.appendChild(rightSlot);
+      }
+    }
+
+    function renderHand() {
+      const hand = document.getElementById('player-hand');
+      hand.innerHTML = '';
+
+      const currentHand = gameState.playerHands[gameState.currentPlayerIndex] || [];
+
+      if (currentHand.length === 0) {
+        hand.innerHTML = '<p class="text-blue-300">¡Sin fichas! 🎉</p>';
+        checkWinCondition();
+        return;
+      }
+
+      currentHand.forEach(tile => {
+        hand.appendChild(createTileElement(tile, true));
+      });
+    }
+
+    function updateStats() {
+      if (gameState.mode === 'solo') {
+        document.getElementById('score').textContent = gameState.scores[0];
+      }
+      document.getElementById('tiles-remaining').textContent = gameState.playerHands[gameState.currentPlayerIndex]?.length || 0;
+      document.getElementById('moves-count').textContent = gameState.moves;
+      
+      const status = (gameState.playerHands[gameState.currentPlayerIndex]?.length || 0) === 0 ? '¡Victoria!' : 
+                     canPlayerMove() ? 'Jugando' : 'Sin movimientos';
+      document.getElementById('game-status').textContent = status;
+    }
+
+    function handleDragOver(e) {
+      e.preventDefault();
+      e.dataTransfer.dropEffect = 'move';
+    }
+
+    function handleDrop(e) {
+      e.preventDefault();
+      if (!draggedTile) return;
+      
+      const slot = e.target.closest('.board-slot');
+      if (!slot) return;
+      
+      const position = slot.dataset.position;
+      const tileLeft = parseInt(draggedTile.dataset.left);
+      const tileRight = parseInt(draggedTile.dataset.right);
+      const tileId = parseInt(draggedTile.dataset.tileId);
+      
+      const currentHand = gameState.playerHands[gameState.currentPlayerIndex];
+      const tileIndex = currentHand.findIndex(t => t.id === tileId);
+      if (tileIndex === -1) return;
+      
+      const tile = currentHand[tileIndex];
+      
+      if (gameState.boardTiles.length === 0) {
+        gameState.boardTiles.push(tile);
+        gameState.leftEnd = tile.left;
+        gameState.rightEnd = tile.right;
+        gameState.placedTileOrientations[tile.id] = 'horizontal';
+        currentHand.splice(tileIndex, 1);
+        gameState.moves++;
+        gameState.scores[gameState.currentPlayerIndex] += tile.left + tile.right;
+        
+        drawNewTile();
+        saveGame();
+        nextTurn();
+        renderGame();
+        showToast('¡Primera ficha colocada!', 'success');
+        
+      } else if (position === 'left') {
+        let placed = false;
+        
+        if (tileRight === gameState.leftEnd) {
+          gameState.boardTiles.unshift(tile);
+          gameState.placedTileOrientations[tile.id] = 'horizontal';
+          gameState.leftEnd = tileLeft;
+          placed = true;
+        } else if (tileLeft === gameState.leftEnd) {
+          gameState.boardTiles.unshift({ ...tile, left: tile.right, right: tile.left });
+          gameState.placedTileOrientations[tile.id] = 'horizontal';
+          gameState.leftEnd = tileRight;
+          placed = true;
+        }
+        
+        if (!placed) {
+          showToast('¡No coincide!', 'error');
+          return;
+        }
+        
+        currentHand.splice(tileIndex, 1);
+        gameState.moves++;
+        gameState.scores[gameState.currentPlayerIndex] += tile.left + tile.right;
+        
+        drawNewTile();
+        saveGame();
+        nextTurn();
+        renderGame();
+        showToast('+' + (tile.left + tile.right) + ' puntos', 'success');
+        
+      } else if (position === 'right') {
+        let placed = false;
+        
+        if (tileLeft === gameState.rightEnd) {
+          gameState.boardTiles.push(tile);
+          gameState.placedTileOrientations[tile.id] = 'horizontal';
+          gameState.rightEnd = tileRight;
+          placed = true;
+        } else if (tileRight === gameState.rightEnd) {
+          gameState.boardTiles.push({ ...tile, left: tile.right, right: tile.left });
+          gameState.placedTileOrientations[tile.id] = 'horizontal';
+          gameState.rightEnd = tileLeft;
+          placed = true;
+        }
+        
+        if (!placed) {
+          showToast('¡No coincide!', 'error');
+          return;
+        }
+        
+        currentHand.splice(tileIndex, 1);
+        gameState.moves++;
+        gameState.scores[gameState.currentPlayerIndex] += tile.left + tile.right;
+        
+        drawNewTile();
+        saveGame();
+        nextTurn();
+        renderGame();
+        showToast('+' + (tile.left + tile.right) + ' puntos', 'success');
+      }
+    }
+
+    function nextTurn() {
+      if (gameState.mode === 'solo') return;
+      
+      gameState.currentPlayerIndex = (gameState.currentPlayerIndex + 1) % gameState.players.length;
+      
+      const currentPlayerName = gameState.players[gameState.currentPlayerIndex];
+      showToast(`Turno de ${currentPlayerName}`, 'info');
+    }
+
+    function canPlayerMove() {
+      const currentHand = gameState.playerHands[gameState.currentPlayerIndex];
+      if (!currentHand || gameState.boardTiles.length === 0) return true;
+      
+      return currentHand.some(tile => 
+        tile.left === gameState.leftEnd || 
+        tile.right === gameState.leftEnd ||
+        tile.left === gameState.rightEnd ||
+        tile.right === gameState.rightEnd
+      );
+    }
+
+    function drawNewTile() {
+      if (gameState.tiles.length > 0) {
+        const newTile = gameState.tiles.shift();
+        gameState.playerHands[gameState.currentPlayerIndex].push(newTile);
+      }
+    }
+
+    function toggleTileRotation(tileId) {
+      const current = gameState.placedTileOrientations[tileId] || 'horizontal';
+      gameState.placedTileOrientations[tileId] = current === 'horizontal' ? 'vertical' : 'horizontal';
+      saveGame();
+      renderBoard();
+      showToast('Ficha rotada', 'info');
+    }
+
+    function checkWinCondition() {
+      if (gameState.mode === 'solo') {
+        showToast('🎉 ¡VICTORIA! Has colocado todas las fichas', 'success');
+        document.getElementById('game-status').textContent = '¡Victoria!';
+      }
+    }
+
+    function showToast(message, type = 'info') {
+      const toast = document.getElementById('toast');
+      toast.textContent = message;
+      toast.className = `toast ${type} show`;
+      
+      setTimeout(() => {
+        toast.classList.remove('show');
+      }, 3000);
+    }
+
+    // Event Listeners
+    document.getElementById('btn-solo').addEventListener('click', startSoloMode);
+    document.getElementById('btn-multiplayer').addEventListener('click', startMultiplayerMode);
+    document.getElementById('btn-back-mode').addEventListener('click', () => showScreen('mode-selector'));
+    document.getElementById('btn-start-multiplayer').addEventListener('click', startMultiplayerGame);
+
+    document.getElementById('btn-new-game').addEventListener('click', () => {
+      startNewGame();
+    });
+
+    document.getElementById('btn-horizontal').addEventListener('click', () => {
+      gameState.orientation = 'horizontal';
+      saveGame();
+      showToast('Modo horizontal', 'info');
+    });
+
+    document.getElementById('btn-vertical').addEventListener('click', () => {
+      gameState.orientation = 'vertical';
+      saveGame();
+      showToast('Modo vertical', 'info');
+    });
+
+    document.addEventListener('DOMContentLoaded', () => {
+      lucide.createIcons();
+      showScreen('mode-selector');
+      applyConfig();
+    });
+  </script>
+ <script>(function(){function c(){var b=a.contentDocument||a.contentWindow.document;if(b){var d=b.createElement('script');d.innerHTML="window.__CF$cv$params={r:'9de64fd8e673cf8c',t:'MTc3Mzg1ODY2MS4wMDAwMDA='};var a=document.createElement('script');a.nonce='';a.src='/cdn-cgi/challenge-platform/scripts/jsd/main.js';document.getElementsByTagName('head')[0].appendChild(a);";b.getElementsByTagName('head')[0].appendChild(d)}}if(document.body){var a=document.createElement('iframe');a.height=1;a.width=1;a.style.position='absolute';a.style.top=0;a.style.left=0;a.style.border='none';a.style.visibility='hidden';document.body.appendChild(a);if('loading'!==document.readyState)c();else if(window.addEventListener)document.addEventListener('DOMContentLoaded',c);else{var e=document.onreadystatechange||function(){};document.onreadystatechange=function(b){e(b);'loading'!==document.readyState&&(document.onreadystatechange=e,c())}}}})();</script></body>
+</html>
